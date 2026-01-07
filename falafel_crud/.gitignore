@@ -1,0 +1,40 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Runner/GeneratedPluginRegistrant.*
+macos/Flutter/ephemeral/
+**/GeneratedPluginRegistrant.*
+# Web build
+/web/main.dart.js
+/web/main.dart.js.map
+/web/flutter_service_worker.js
+/web/version.json
+
+# VSCode settings
+.vscode/
+*.code-workspace
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Misc
+*.log
+*.lock
+*.DS_Store
+*.swp
+*.swo
+*.tmp
+
+# Local JSON data
+/lib/data/*.json
