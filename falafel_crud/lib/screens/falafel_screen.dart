@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/falafel_repository.dart';
 import '../services/falafel_service_factory.dart';
+import '../services/falafel_repository.dart';
 
 class FalafelScreen extends StatefulWidget {
   final bool isAdmin;
@@ -12,16 +12,12 @@ class FalafelScreen extends StatefulWidget {
 }
 
 class _FalafelScreenState extends State<FalafelScreen> {
-  late FalafelRepository api;
   List<Map<String, dynamic>> falafel = [];
 
-  @override
-  void initState() {
-    super.initState();
-    api = FalafelServiceFactory.create();
-  }
+  // Dynamisch Service holen, je nach AppConfig.useBackend
+  FalafelRepository get api => FalafelServiceFactory.create();
 
-  // -------- REST Simulation Dialog --------
+  // -------- REST-Popup --------
   void showRestCallDialog(String method, String path) {
     showDialog(
       context: context,
@@ -38,17 +34,25 @@ class _FalafelScreenState extends State<FalafelScreen> {
     );
   }
 
-  // -------- Load Falafel --------
+  // -------- Load Falafel (GET) --------
   Future<void> loadFalafel() async {
     showRestCallDialog('GET', '/falafel');
-    falafel = await api.getFalafel();
-    setState(() {});
+    try {
+      final data = await api.getFalafel();
+      setState(() {
+        falafel = data;
+      });
+    } catch (e) {
+      debugPrint('Fehler beim Laden: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fehler beim Laden der Falafel')),
+      );
+    }
   }
 
-  // -------- Add Falafel --------
+  // -------- Add Falafel (POST) --------
   Future<void> addFalafel() async {
     final controller = TextEditingController();
-
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -68,11 +72,9 @@ class _FalafelScreenState extends State<FalafelScreen> {
                 'id': DateTime.now().millisecondsSinceEpoch,
                 'name': controller.text,
               };
-
               showRestCallDialog('POST', '/falafel');
               await api.addFalafel(newFalafel);
               await loadFalafel();
-
               if (mounted) Navigator.pop(context);
             },
             child: const Text('Speichern'),
@@ -82,10 +84,9 @@ class _FalafelScreenState extends State<FalafelScreen> {
     );
   }
 
-  // -------- Edit Falafel --------
+  // -------- Edit Falafel (PUT) --------
   Future<void> editFalafel(Map<String, dynamic> item) async {
     final controller = TextEditingController(text: item['name']);
-
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -105,11 +106,9 @@ class _FalafelScreenState extends State<FalafelScreen> {
                 'id': item['id'],
                 'name': controller.text,
               };
-
               showRestCallDialog('PUT', '/falafel/${item['id']}');
               await api.updateFalafel(item['id'], updated);
               await loadFalafel();
-
               if (mounted) Navigator.pop(context);
             },
             child: const Text('Speichern'),
@@ -119,7 +118,7 @@ class _FalafelScreenState extends State<FalafelScreen> {
     );
   }
 
-  // -------- Delete Falafel --------
+  // -------- Delete Falafel (DELETE) --------
   Future<void> deleteFalafel(int id) async {
     showRestCallDialog('DELETE', '/falafel/$id');
     await api.deleteFalafel(id);
@@ -131,6 +130,7 @@ class _FalafelScreenState extends State<FalafelScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Buttons
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -150,6 +150,7 @@ class _FalafelScreenState extends State<FalafelScreen> {
             ],
           ),
         ),
+        // Grid
         Expanded(
           child: falafel.isEmpty
               ? const Center(child: Text('Keine Falafel geladen'))
@@ -164,7 +165,6 @@ class _FalafelScreenState extends State<FalafelScreen> {
                   itemCount: falafel.length,
                   itemBuilder: (_, index) {
                     final item = falafel[index];
-
                     return Card(
                       elevation: 3,
                       child: Padding(
