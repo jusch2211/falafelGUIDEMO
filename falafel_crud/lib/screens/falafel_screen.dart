@@ -1,62 +1,61 @@
 import 'package:flutter/material.dart';
-import '../services/falafel_api.dart';
-import '../widgets/falafel_card.dart';
+import '../services/falafel_repository.dart';
+import '../services/falafel_service_factory.dart';
 
 class FalafelScreen extends StatefulWidget {
   final bool isAdmin;
 
-  const FalafelScreen({required this.isAdmin});
+  const FalafelScreen({super.key, required this.isAdmin});
 
   @override
   State<FalafelScreen> createState() => _FalafelScreenState();
 }
 
 class _FalafelScreenState extends State<FalafelScreen> {
-  final FalafelApi api = FalafelApi();
+  late FalafelRepository api;
   List<Map<String, dynamic>> falafel = [];
-
-  final TextEditingController nameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    loadFalafel();
+    api = FalafelServiceFactory.create();
   }
 
-  void loadFalafel() async {
+  // -------- REST Simulation Dialog --------
+  void showRestCallDialog(String method, String path) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('REST Call'),
+        content: Text('$method $path'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
+
+  // -------- Load Falafel --------
+  Future<void> loadFalafel() async {
     showRestCallDialog('GET', '/falafel');
     falafel = await api.getFalafel();
     setState(() {});
   }
 
-  void addFalafel() async {
-    showRestCallDialog('POST', '/falafel');
-    final newFalafel = {
-      'id': DateTime.now().millisecondsSinceEpoch,
-      'name': nameController.text,
-    };
-
-    falafel = await api.addFalafel(falafel, newFalafel);
-    nameController.clear();
-    setState(() {});
-  }
-
-  void deleteFalafel(int id) async {
-    showRestCallDialog('DELETE', '/falafel/$id');
-    falafel = await api.deleteFalafel(falafel, id);
-    setState(() {});
-  }
-
-  void editFalafel(Map<String, dynamic> falafelItem) {
-    final controller = TextEditingController(text: falafelItem['name']);
+  // -------- Add Falafel --------
+  Future<void> addFalafel() async {
+    final controller = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Falafel bearbeiten'),
+      builder: (_) => AlertDialog(
+        title: const Text('Falafel erstellen'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Falafel Name'),
+          decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
           TextButton(
@@ -64,25 +63,17 @@ class _FalafelScreenState extends State<FalafelScreen> {
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            onPressed: () {
-              showRestCallDialog(
-                'PUT',
-                '/falafel/${falafelItem['id']}',
-              );
+            onPressed: () async {
+              final newFalafel = {
+                'id': DateTime.now().millisecondsSinceEpoch,
+                'name': controller.text,
+              };
 
-              setState(() {
-                falafel = falafel.map((f) {
-                  if (f['id'] == falafelItem['id']) {
-                    return {
-                      ...f,
-                      'name': controller.text,
-                    };
-                  }
-                  return f;
-                }).toList();
-              });
+              showRestCallDialog('POST', '/falafel');
+              await api.addFalafel(newFalafel);
+              await loadFalafel();
 
-              Navigator.pop(context);
+              if (mounted) Navigator.pop(context);
             },
             child: const Text('Speichern'),
           ),
@@ -91,63 +82,119 @@ class _FalafelScreenState extends State<FalafelScreen> {
     );
   }
 
-  void showRestCallDialog(String method, String endpoint) {
+  // -------- Edit Falafel --------
+  Future<void> editFalafel(Map<String, dynamic> item) async {
+    final controller = TextEditingController(text: item['name']);
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('REST Call'),
-        content: Text(
-          '$method $endpoint',
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 16,
-          ),
+        title: const Text('Falafel bearbeiten'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final updated = {
+                'id': item['id'],
+                'name': controller.text,
+              };
+
+              showRestCallDialog('PUT', '/falafel/${item['id']}');
+              await api.updateFalafel(item['id'], updated);
+              await loadFalafel();
+
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Speichern'),
           ),
         ],
       ),
     );
   }
 
+  // -------- Delete Falafel --------
+  Future<void> deleteFalafel(int id) async {
+    showRestCallDialog('DELETE', '/falafel/$id');
+    await api.deleteFalafel(id);
+    await loadFalafel();
+  }
+
+  // -------- UI --------
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (widget.isAdmin)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: nameController,
-                    decoration:
-                        const InputDecoration(labelText: 'Falafel Name'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: loadFalafel,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Falafel anzeigen'),
+              ),
+              const SizedBox(width: 16),
+              if (widget.isAdmin)
+                ElevatedButton.icon(
                   onPressed: addFalafel,
-                  child: const Text('Hinzufügen'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Falafel erstellen'),
                 ),
-              ],
-            ),
+            ],
           ),
+        ),
         Expanded(
-          child: ListView(
-            children: falafel.map((f) {
-              return FalafelCard(
-                falafel: f,
-                isAdmin: widget.isAdmin,
-                onDelete: () => deleteFalafel(f['id']),
-                onEdit: widget.isAdmin ? () => editFalafel(f) : null,
-              );
-            }).toList(),
-          ),
+          child: falafel.isEmpty
+              ? const Center(child: Text('Keine Falafel geladen'))
+              : GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 3,
+                  ),
+                  itemCount: falafel.length,
+                  itemBuilder: (_, index) {
+                    final item = falafel[index];
+
+                    return Card(
+                      elevation: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item['name'],
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            if (widget.isAdmin)
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () => editFalafel(item),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () => deleteFalafel(item['id']),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );

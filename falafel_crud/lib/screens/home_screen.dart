@@ -1,73 +1,94 @@
 import 'package:flutter/material.dart';
-import '../widgets/side_menu.dart';
+import '../config/app_config.dart';
 import 'falafel_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
-  final String role;
+  final String role; // "admin" oder "user"
 
-  const HomeScreen({required this.username, required this.role, Key? key})
-      : super(key: key);
+  const HomeScreen({
+    super.key,
+    required this.username,
+    required this.role,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String selectedPage = 'view'; // default Seite
-
-  void selectPage(String page) {
-    setState(() {
-      selectedPage = page;
-    });
-  }
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    // Prüfen, ob Adminrechte vorliegen
-    bool isAdmin = widget.role.toLowerCase() == 'admin';
+    final bool isAdmin = widget.role == 'admin';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Falafel App - Willkommen ${widget.username}'),
-      ),
-      drawer: SideMenu(
-        isAdmin: isAdmin,
-        onSelect: (page) {
-          Navigator.pop(context); // Drawer schließen
-          selectPage(page);
-        },
-      ),
-      body: Row(
-        children: [
-          // Optional: feste Sidebar für Web
-          if (MediaQuery.of(context).size.width > 800)
-            SizedBox(
-              width: 200,
-              child: SideMenu(
-                isAdmin: isAdmin,
-                onSelect: selectPage,
+        title: const Text('Falafel Verwaltung'),
+        actions: [
+          Row(
+            children: [
+              const Text('Backend'),
+              Switch(
+                value: AppConfig.useBackend,
+                onChanged: (value) {
+                  setState(() {
+                    AppConfig.useBackend = value;
+                  });
+                },
               ),
-            ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: getPage(selectedPage, isAdmin),
-            ),
-          ),
+              const SizedBox(width: 16),
+            ],
+          )
         ],
       ),
+      drawer: Drawer(
+        child: Column(
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text(widget.username),
+              accountEmail: Text(
+                isAdmin ? 'Admin' : 'Nutzer',
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.fastfood),
+              title: const Text('Falafel anzeigen'),
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const Spacer(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      body: _buildContent(isAdmin),
     );
   }
 
-  // Entscheidet, welche Seite angezeigt wird
-  Widget getPage(String page, bool isAdmin) {
-    switch (page) {
-      case 'manage':
-      case 'view':
+  Widget _buildContent(bool isAdmin) {
+    switch (_selectedIndex) {
+      case 0:
         return FalafelScreen(isAdmin: isAdmin);
       default:
-        return const Center(child: Text('Seite nicht gefunden'));
+        return const Center(child: Text('Unbekannter Menüpunkt'));
     }
   }
 }
